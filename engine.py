@@ -99,8 +99,8 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     csv_writer = csv.writer(csv_file)
     
     # Başlıkları ayrı ayrı yazıyoruz
-    header = ['image_id', 'category_id', 'category_name', 'score', 'x_min', 'y_min', 'x_max', 'y_max']
-    csv_writer.writerow(header)
+    csv_header = ['image_id', 'category_id', 'category_name', 'score', 'x_min', 'y_min', 'x_max', 'y_max']
+    csv_writer.writerow(csv_header)
     print(f"Veri kaydı başlatıldı: {csv_file_path}")
     # --- EKLEME BİTİŞ ---
 
