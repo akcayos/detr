@@ -74,15 +74,33 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     metric_logger.add_meter('class_error', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
     header = 'Test:'
     # --- EKLEME BAŞLANGIÇ: CSV Dosyasını Hazırla ---
+    COCO_CLASSES = [
+        'N/A', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
+        'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'N/A',
+        'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse',
+        'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'N/A', 'backpack',
+        'umbrella', 'N/A', 'N/A', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis',
+        'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove',
+        'skateboard', 'surfboard', 'tennis racket', 'bottle', 'N/A', 'wine glass',
+        'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich',
+        'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake',
+        'chair', 'couch', 'potted plant', 'bed', 'N/A', 'dining table', 'N/A',
+        'N/A', 'toilet', 'N/A', 'tv', 'laptop', 'mouse', 'remote', 'keyboard',
+        'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'N/A',
+        'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier',
+        'toothbrush'
+    ]
     csv_file_path = "detr_gorsel_sonuclar.csv"
     # Eğer output_dir varsa oraya kaydedelim, yoksa ana dizine
     if output_dir:
-        csv_file_path = os.path.join(output_dir, "detr_gorsel_sonuclar.csv")
+        csv_file_path = os.path.join(output_dir, "detr_sonuclar_detayli.csv")
         
-    csv_file = open(csv_file_path, mode='w', newline='')
+    csv_file = open(csv_file_path, mode='w', newline='', encoding='utf-8')
     csv_writer = csv.writer(csv_file)
-    # Sütun başlıklarını yazalım: Resim ID, Sınıf ID, Skor, Kutu Koordinatları
-    csv_writer.writerow(['image_id', 'category_id', 'score', 'bbox'])
+    
+    # Başlıkları ayrı ayrı yazıyoruz
+    header = ['image_id', 'category_id', 'category_name', 'score', 'x_min', 'y_min', 'x_max', 'y_max']
+    csv_writer.writerow(header)
     print(f"Veri kaydı başlatıldı: {csv_file_path}")
     # --- EKLEME BİTİŞ ---
 
@@ -124,11 +142,24 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
             
             # Her bir tespit için satır ekle
             for score, label, box in zip(scores, labels, boxes):
-                # Filtre: Sadece skoru %50'den büyük olanları kaydet (Dosya çok şişmesin)
-                if score > 0.5:
-                    # Kutu formatı [xmin, ymin, xmax, ymax] şeklindedir
-                    formatted_box = [round(b, 2) for b in box]
-                    csv_writer.writerow([img_id, label, round(score, 4), formatted_box])
+                # Filtre: Sadece skoru %50'den büyük olanları kaydet
+                label_id = label.item()
+             
+                # ID'den İsme Dönüşüm
+                # Eğer ID liste sınırları içindeyse ismi al, değilse 'unknown' yaz
+                category_name = COCO_CLASSES[label_id] if label_id < len(COCO_CLASSES) else "unknown"
+                  
+                # Kutu koordinatlarını ayır (round ile virgülden sonra 2 hane al)
+                x_min, y_min, x_max, y_max = [round(b, 2) for b in box.tolist()]
+                    
+                # Yeni satırı yaz: İsim ve 4 ayrı koordinat sütunu ile
+                csv_writer.writerow([
+                    img_id, 
+                    label_id, 
+                    category_name, 
+                    round(score.item(), 4), 
+                    x_min, y_min, x_max, y_max
+                ])
         
         # --- EKLEME BİTİŞ ---
         
