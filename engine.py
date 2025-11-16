@@ -136,28 +136,29 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
             img_id = targets[i]['image_id'].item() # Resmin ID'si
             
             # Sonuçları ayrıştır: skorlar, etiketler, kutular
+            # .tolist() dediğimiz için bunlar artık saf Python listesi oldu
             scores = result['scores'].cpu().tolist()
             labels = result['labels'].cpu().tolist()
             boxes = result['boxes'].cpu().tolist()
             
             # Her bir tespit için satır ekle
             for score, label, box in zip(scores, labels, boxes):
-                # Filtre: Sadece skoru %50'den büyük olanları kaydet
-                label_id = label.item()
-             
+                # HATA DÜZELTİLDİ: label artık bir 'int', .item() gerekmez.
+                label_id = label 
+                
                 # ID'den İsme Dönüşüm
-                # Eğer ID liste sınırları içindeyse ismi al, değilse 'unknown' yaz
                 category_name = COCO_CLASSES[label_id] if label_id < len(COCO_CLASSES) else "unknown"
-                  
-                # Kutu koordinatlarını ayır (round ile virgülden sonra 2 hane al)
-                x_min, y_min, x_max, y_max = [round(b, 2) for b in box.tolist()]
-                    
-                # Yeni satırı yaz: İsim ve 4 ayrı koordinat sütunu ile
+                
+                # Kutu koordinatlarını ayır
+                x_min, y_min, x_max, y_max = [round(b, 2) for b in box]
+                
+                # Yeni satırı yaz
+                # HATA DÜZELTİLDİ: score artık bir 'float', .item() gerekmez.
                 csv_writer.writerow([
                     img_id, 
                     label_id, 
                     category_name, 
-                    round(score.item(), 4), 
+                    round(score, 4), 
                     x_min, y_min, x_max, y_max
                 ])
         
