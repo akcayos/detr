@@ -5,6 +5,7 @@ Train and eval functions used in main.py
 import math
 import os
 import sys
+import csv
 from typing import Iterable
 
 import torch
@@ -72,6 +73,18 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('class_error', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
     header = 'Test:'
+    # --- EKLEME BAŞLANGIÇ: CSV Dosyasını Hazırla ---
+    csv_file_path = "detr_gorsel_sonuclar.csv"
+    # Eğer output_dir varsa oraya kaydedelim, yoksa ana dizine
+    if output_dir:
+        csv_file_path = os.path.join(output_dir, "detr_gorsel_sonuclar.csv")
+        
+    csv_file = open(csv_file_path, mode='w', newline='')
+    csv_writer = csv.writer(csv_file)
+    # Sütun başlıklarını yazalım: Resim ID, Sınıf ID, Skor, Kutu Koordinatları
+    csv_writer.writerow(['image_id', 'category_id', 'score', 'bbox'])
+    print(f"Veri kaydı başlatıldı: {csv_file_path}")
+    # --- EKLEME BİTİŞ ---
 
     iou_types = tuple(k for k in ('segm', 'bbox') if k in postprocessors.keys())
     coco_evaluator = CocoEvaluator(base_ds, iou_types)
@@ -90,6 +103,35 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         outputs = model(samples)
+
+        # --- EKLEME BAŞLANGIÇ: Tahminleri İşle ve CSV'ye Yaz ---
+        
+        # 1. Orijinal resim boyutlarını al (Kutuları doğru ölçeklemek için şart)
+        orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
+        
+        # 2. DETR'in kendi işlemcisini kullanarak ham çıktıları anlamlı kutulara çevir
+        # Bu fonksiyon logits'i olasılığa çevirir ve kutuları resim boyutuna ölçekler.
+        results = postprocessors['bbox'](outputs, orig_target_sizes)
+        
+        # 3. Batch içindeki her bir resim için sonuçları dön
+        for i, result in enumerate(results):
+            img_id = targets[i]['image_id'].item() # Resmin ID'si
+            
+            # Sonuçları ayrıştır: skorlar, etiketler, kutular
+            scores = result['scores'].cpu().tolist()
+            labels = result['labels'].cpu().tolist()
+            boxes = result['boxes'].cpu().tolist()
+            
+            # Her bir tespit için satır ekle
+            for score, label, box in zip(scores, labels, boxes):
+                # Filtre: Sadece skoru %50'den büyük olanları kaydet (Dosya çok şişmesin)
+                if score > 0.5:
+                    # Kutu formatı [xmin, ymin, xmax, ymax] şeklindedir
+                    formatted_box = [round(b, 2) for b in box]
+                    csv_writer.writerow([img_id, label, round(score, 4), formatted_box])
+        
+        # --- EKLEME BİTİŞ ---
+        
         loss_dict = criterion(outputs, targets)
         weight_dict = criterion.weight_dict
 
@@ -148,4 +190,12 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         stats['PQ_all'] = panoptic_res["All"]
         stats['PQ_th'] = panoptic_res["Things"]
         stats['PQ_st'] = panoptic_res["Stuff"]
+    
+    # --- EKLEME BAŞLANGIÇ: Dosyayı Kapat ---
+    # Bu kısmı return satırından hemen önceye ekliyorsun
+    if 'csv_file' in locals(): # Hata almamak için güvenlik kontrolü
+        csv_file.close()
+        print("CSV kaydı tamamlandı.")
+    # --- EKLEME BİTİŞ ---
+
     return stats, coco_evaluator
