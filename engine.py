@@ -93,7 +93,7 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     csv_file_path = "detr_gorsel_sonuclar.csv"
     # Eğer output_dir varsa oraya kaydedelim, yoksa ana dizine
     if output_dir:
-        csv_file_path = os.path.join(output_dir, "detr_sonuclar_detayli.csv")
+        csv_file_path = os.path.join(output_dir, "detr_gorsel_sonuclar.csv")
         
     csv_file = open(csv_file_path, mode='w', newline='', encoding='utf-8')
     csv_writer = csv.writer(csv_file)
