@@ -65,6 +65,35 @@ class CocoEvaluator(object):
         for iou_type, coco_eval in self.coco_eval.items():
             print("IoU metric: {}".format(iou_type))
             coco_eval.summarize()
+            print("\n--- Sınıf Bazında AP Raporu (AP @ IoU=0.50:0.95 | area=all | maxDets=100) ---")
+            try:
+                # Precision verisini çek
+                # Dizinler: [T=IoU eşikleri, R=Recall eşikleri, K=Kategori, A=Alan, M=Max Dets]
+                precision = coco_eval.eval['precision']
+
+                # Kullanılan kategori ID'lerini ve isimlerini al
+                catIds = coco_eval.params.catIds
+                cat_names = {catId: coco_eval.cocoGt.cats[catId]['name'] for catId in catIds}
+
+                # Her kategori için AP hesapla
+                for idx, catId in enumerate(catIds):
+                    # Kategori adını al
+                    cat_name = cat_names[catId]
+
+                    # Bu kategori (K=idx) için tüm IoU ve Recall eşiklerindeki precision skorlarını al
+                    # Alan=all (A=0), maxDets=100 (M=2)
+                    ap_scores = precision[:, :, idx, 0, 2]
+
+                    # -1 olmayan (geçerli) skorların ortalamasını al
+                    ap = ap_scores[ap_scores > -1].mean()
+
+                    # Sınıf adını ve AP skorunu yazdır
+                    print(f"{cat_name:<18}: {ap:.4f}")
+
+            except Exception as e:
+                print(f"Sınıf bazında rapor alınırken hata oluştu: {e}")
+
+            print("----------------------------------------------------------------------\n")
 
     def prepare(self, predictions, iou_type):
         if iou_type == "bbox":
